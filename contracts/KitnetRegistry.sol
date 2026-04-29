@@ -4,120 +4,121 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 
 /**
- * @title KitnetRegistryERC721
- * @dev Smart contract for registering and managing kitnets and rental contracts using ERC-721 standard.
- * Based on the TCC proposal "Blockchain para cadastro de kitnet".
+ * @title RegistroDeKitnetsERC721
+ * @dev Contrato inteligente para registro e gestão de kitnets e contratos de aluguel usando o padrão ERC-721.
+ * Baseado na proposta de TCC "Blockchain para cadastro de kitnet".
  */
 contract KitnetRegistry is ERC721URIStorage {
     uint256 private _nextTokenId;
 
-    struct Lease {
-        address tenant;
-        uint256 startTime;
-        uint256 endTime;
-        bool isActive;
+    struct Aluguel {
+        address locatario;
+        uint256 tempoInicio;
+        uint256 tempoFim;
+        bool estaAtivo;
     }
 
-    // Mapping from kitnet ID to its active lease
-    mapping(uint256 => Lease) public activeLeases;
-    // Mapping from kitnet ID to its rented status
-    mapping(uint256 => bool) public isRented;
+    // Mapeamento do ID da kitnet para seu aluguel ativo
+    mapping(uint256 => Aluguel) public alugueisAtivos;
+    // Mapeamento do ID da kitnet para seu status de ocupação
+    mapping(uint256 => bool) public estaAlugada;
 
-    // Events for transparency and auditing
-    event KitnetRegistered(uint256 indexed kitnetId, address indexed owner, string metadataURI);
-    event LeaseStarted(uint256 indexed kitnetId, address indexed tenant, uint256 endTime);
-    event LeaseTerminated(uint256 indexed kitnetId, address indexed tenant);
+    // Eventos para transparência e auditoria
+    event KitnetRegistrada(uint256 indexed kitnetId, address indexed proprietario, string metadataURI);
+    event AluguelIniciado(uint256 indexed kitnetId, address indexed locatario, uint256 tempoFim);
+    event AluguelEncerrado(uint256 indexed kitnetId, address indexed locatario);
 
     constructor() ERC721("KitnetRegistry", "KTNT") {}
 
-    modifier onlyKitnetOwner(uint256 _kitnetId) {
-        require(ownerOf(_kitnetId) == msg.sender, "Not the kitnet owner");
+    modifier apenasProprietario(uint256 _kitnetId) {
+        require(ownerOf(_kitnetId) == msg.sender, "Nao e o dono da kitnet");
         _;
     }
 
     /**
-     * @dev Registers a new kitnet in the system as an NFT.
-     * @param _metadataURI The IPFS hash containing the kitnet's digital representation.
+     * @dev Registra uma nova kitnet no sistema como um NFT.
+     * @param _metadataURI O hash do IPFS contendo a representação digital da kitnet.
      */
-    function registerKitnet(string memory _metadataURI) public returns (uint256) {
+    function registrarKitnet(string memory _metadataURI) public returns (uint256) {
         _nextTokenId++;
-        uint256 newKitnetId = _nextTokenId;
+        uint256 novoIdKitnet = _nextTokenId;
 
-        _mint(msg.sender, newKitnetId);
-        _setTokenURI(newKitnetId, _metadataURI);
+        _mint(msg.sender, novoIdKitnet);
+        _setTokenURI(novoIdKitnet, _metadataURI);
 
-        emit KitnetRegistered(newKitnetId, msg.sender, _metadataURI);
-        return newKitnetId;
+        emit KitnetRegistrada(novoIdKitnet, msg.sender, _metadataURI);
+        return novoIdKitnet;
     }
 
     /**
-     * @dev Overrides standard transfer behavior to prevent transferring while a kitnet is rented.
-     * Note: Uses OpenZeppelin v5 `_update` hook.
+     * @dev Sobrescreve o comportamento padrão de transferência para impedir a venda/transferência 
+     * enquanto a kitnet estiver alugada.
+     * Nota: Utiliza o hook `_update` do OpenZeppelin v5.
      */
-    function _update(address to, uint256 tokenId, address auth) internal virtual override returns (address) {
-        address from = _ownerOf(tokenId);
-        // Only prevent transfer if it's not a mint or burn
-        if (from != address(0) && to != address(0)) {
-            require(!isRented[tokenId], "Cannot transfer ownership while kitnet is rented");
+    function _update(address para, uint256 tokenId, address auth) internal virtual override returns (address) {
+        address de = _ownerOf(tokenId);
+        // Só impede a transferência se não for uma criação (mint) ou destruição (burn)
+        if (de != address(0) && para != address(0)) {
+            require(!estaAlugada[tokenId], "Nao e possivel transferir a propriedade com a kitnet alugada");
         }
-        return super._update(to, tokenId, auth);
+        return super._update(para, tokenId, auth);
     }
 
     /**
-     * @dev Registers a rental contract (lease) for a kitnet.
-     * @param _kitnetId The ID of the kitnet to be rented.
-     * @param _tenant The address of the tenant.
-     * @param _duration Duration of the lease in seconds.
+     * @dev Registra um contrato de aluguel para uma kitnet.
+     * @param _kitnetId O ID da kitnet a ser alugada.
+     * @param _locatario O endereço (wallet) do inquilino.
+     * @param _duracao Duração do aluguel em segundos.
      */
-    function createLease(uint256 _kitnetId, address _tenant, uint256 _duration) public onlyKitnetOwner(_kitnetId) {
-        require(!isRented[_kitnetId], "Kitnet already rented");
-        require(_tenant != address(0), "Invalid tenant address");
+    function criarAluguel(uint256 _kitnetId, address _locatario, uint256 _duracao) public apenasProprietario(_kitnetId) {
+        require(!estaAlugada[_kitnetId], "Kitnet ja esta alugada");
+        require(_locatario != address(0), "Endereco de locatario invalido");
 
-        uint256 endTime = block.timestamp + _duration;
+        uint256 tempoFim = block.timestamp + _duracao;
         
-        activeLeases[_kitnetId] = Lease({
-            tenant: _tenant,
-            startTime: block.timestamp,
-            endTime: endTime,
-            isActive: true
+        alugueisAtivos[_kitnetId] = Aluguel({
+            locatario: _locatario,
+            tempoInicio: block.timestamp,
+            tempoFim: tempoFim,
+            estaAtivo: true
         });
 
-        isRented[_kitnetId] = true;
+        estaAlugada[_kitnetId] = true;
 
-        emit LeaseStarted(_kitnetId, _tenant, endTime);
+        emit AluguelIniciado(_kitnetId, _locatario, tempoFim);
     }
 
     /**
-     * @dev Terminates an active rental contract.
-     * @param _kitnetId The ID of the kitnet.
+     * @dev Encerra um contrato de aluguel ativo.
+     * @param _kitnetId O ID da kitnet.
      */
-    function terminateLease(uint256 _kitnetId) public {
-        address owner = ownerOf(_kitnetId); // implicitly checks if token exists
-        Lease storage lease = activeLeases[_kitnetId];
+    function encerrarAluguel(uint256 _kitnetId) public {
+        address proprietario = ownerOf(_kitnetId); // implicitamente verifica se o token existe
+        Aluguel storage aluguel = alugueisAtivos[_kitnetId];
         
-        require(lease.isActive, "No active lease for this kitnet");
+        require(aluguel.estaAtivo, "Nao ha aluguel ativo para esta kitnet");
         require(
-            msg.sender == owner || msg.sender == lease.tenant,
-            "Only owner or tenant can terminate the lease"
+            msg.sender == proprietario || msg.sender == aluguel.locatario,
+            "Apenas o dono ou o locatario podem encerrar o aluguel"
         );
 
-        address tenant = lease.tenant;
-        lease.isActive = false;
-        isRented[_kitnetId] = false;
+        address locatario = aluguel.locatario;
+        aluguel.estaAtivo = false;
+        estaAlugada[_kitnetId] = false;
 
-        emit LeaseTerminated(_kitnetId, tenant);
+        emit AluguelEncerrado(_kitnetId, locatario);
     }
 
     /**
-     * @dev Retrieves kitnet information. The owner is built into ERC721.
-     * @param _kitnetId The ID of the kitnet.
+     * @dev Recupera informações da kitnet. O proprietário já é nativo do ERC721.
+     * @param _kitnetId O ID da kitnet.
      */
-    function getKitnetStatus(uint256 _kitnetId) public view returns (
-        address owner,
+    function obterStatusKitnet(uint256 _kitnetId) public view returns (
+        address proprietario,
         string memory metadataURI,
-        bool currentlyRented
+        bool alugadaAtualmente
     ) {
-        // ownerOf implicitly checks if token exists
-        return (ownerOf(_kitnetId), tokenURI(_kitnetId), isRented[_kitnetId]);
+        // ownerOf implicitamente verifica se o token existe
+        return (ownerOf(_kitnetId), tokenURI(_kitnetId), estaAlugada[_kitnetId]);
     }
 }
