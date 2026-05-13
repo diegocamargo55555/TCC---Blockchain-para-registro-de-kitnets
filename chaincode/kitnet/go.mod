@@ -1,6 +1,6 @@
 module github.com/chaincode/kitnet
 
-go 1.26.2
+go 1.22
 
 require (
 	github.com/hyperledger/fabric-chaincode-go v0.0.0-20230731094759-d626e9ab09b9

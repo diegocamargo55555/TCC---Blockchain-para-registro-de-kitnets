@@ -23,9 +23,10 @@ type Kitnet struct {
 	ProprietarioAtualID string `json:"proprietario_atual_id"`
 	EnderecoRua         string `json:"endereco_rua"`
 	EnderecoNumero      string `json:"endereco_numero"`
+	EnderecoCEP         string `json:"endereco_cep"`
 	EnderecoCidade      string `json:"endereco_cidade"`
 	MetragemQuadrada    int    `json:"metragem_quadrada"`
-	Status              string `json:"status"` 
+	Status              string `json:"status"`
 	DataRegistro        string `json:"data_registro"`
 }
 
@@ -38,7 +39,7 @@ type ContratoLocacao struct {
 	DataInicio          string `json:"data_inicio"`
 	DataTermino         string `json:"data_termino"`
 	ValorMensalCentavos int    `json:"valor_mensal_centavos"`
-	Status              string `json:"status"` 
+	Status              string `json:"status"`
 	HashDocumentoPDF    string `json:"hash_documento_pdf"`
 }
 
@@ -57,6 +58,19 @@ func getTxTimestampString(ctx contractapi.TransactionContextInterface) (string, 
 }
 
 func (s *ContratoRegistroKitnet) RegistrarPessoaFisica(ctx contractapi.TransactionContextInterface, id string, nome string, documentoHash string, contato string) error {
+	if id == "" {
+		return fmt.Errorf("o ID da pessoa e obrigatorio")
+	}
+	if nome == "" {
+		return fmt.Errorf("o nome da pessoa e obrigatorio")
+	}
+	if documentoHash == "" {
+		return fmt.Errorf("o hash do documento e obrigatorio")
+	}
+	if contato == "" {
+		return fmt.Errorf("o contato e obrigatorio")
+	}
+
 	existe, err := s.PessoaExiste(ctx, id)
 	if err != nil {
 		return err
@@ -113,7 +127,29 @@ func (s *ContratoRegistroKitnet) PessoaExiste(ctx contractapi.TransactionContext
 	return pessoaJSON != nil, nil
 }
 
-func (s *ContratoRegistroKitnet) RegistrarKitnet(ctx contractapi.TransactionContextInterface, id string, proprietarioID string, rua string, numero string, cidade string, metragem int) error {
+func (s *ContratoRegistroKitnet) RegistrarKitnet(ctx contractapi.TransactionContextInterface, id string, proprietarioID string, rua string, numero string, cep string, cidade string, metragem int) error {
+	if id == "" {
+		return fmt.Errorf("o ID da kitnet e obrigatorio")
+	}
+	if proprietarioID == "" {
+		return fmt.Errorf("o ID do proprietario e obrigatorio")
+	}
+	if rua == "" {
+		return fmt.Errorf("a rua e obrigatoria")
+	}
+	if numero == "" {
+		return fmt.Errorf("o numero e obrigatorio")
+	}
+	if cep == "" {
+		return fmt.Errorf("o CEP e obrigatorio")
+	}
+	if cidade == "" {
+		return fmt.Errorf("a cidade e obrigatoria")
+	}
+	if metragem <= 0 {
+		return fmt.Errorf("a metragem quadrada deve ser maior que zero")
+	}
+
 	existe, err := s.KitnetExiste(ctx, id)
 	if err != nil {
 		return err
@@ -141,6 +177,7 @@ func (s *ContratoRegistroKitnet) RegistrarKitnet(ctx contractapi.TransactionCont
 		ProprietarioAtualID: proprietarioID,
 		EnderecoRua:         rua,
 		EnderecoNumero:      numero,
+		EnderecoCEP:         cep,
 		EnderecoCidade:      cidade,
 		MetragemQuadrada:    metragem,
 		Status:              "disponivel",
@@ -298,7 +335,7 @@ func (s *ContratoRegistroKitnet) GetAllKitnets(ctx contractapi.TransactionContex
 			var kitnet Kitnet
 			err = json.Unmarshal(queryResponse.Value, &kitnet)
 			if err != nil {
-				continue 
+				continue
 			}
 			kitnets = append(kitnets, &kitnet)
 		}
