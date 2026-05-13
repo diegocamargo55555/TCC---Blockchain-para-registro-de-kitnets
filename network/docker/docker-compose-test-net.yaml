@@ -106,6 +106,9 @@ services:
         - /var/run/docker.sock:/host/var/run/docker.sock
         - ../organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/msp:/etc/hyperledger/fabric/msp
         - ../organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls:/etc/hyperledger/fabric/tls
+        - ../organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp:/opt/gopath/src/github.com/hyperledger/fabric/peer/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp
+        - ../organizations/ordererOrganizations/example.com/orderers/orderer.example.com/tls/ca.crt:/etc/hyperledger/fabric/orderer-tls-ca.crt
+        - ../organizations/peerOrganizations/org2.example.com/peers/peer0.org2.example.com/tls/ca.crt:/etc/hyperledger/fabric/org2-tls-ca.crt
         - peer0.org1.example.com:/var/hyperledger/production
     working_dir: /opt/gopath/src/github.com/hyperledger/fabric/peer
     command: peer node start
@@ -140,6 +143,9 @@ services:
         - /var/run/docker.sock:/host/var/run/docker.sock
         - ../organizations/peerOrganizations/org2.example.com/peers/peer0.org2.example.com/msp:/etc/hyperledger/fabric/msp
         - ../organizations/peerOrganizations/org2.example.com/peers/peer0.org2.example.com/tls:/etc/hyperledger/fabric/tls
+        - ../organizations/peerOrganizations/org2.example.com/users/Admin@org2.example.com/msp:/opt/gopath/src/github.com/hyperledger/fabric/peer/organizations/peerOrganizations/org2.example.com/users/Admin@org2.example.com/msp
+        - ../organizations/ordererOrganizations/example.com/orderers/orderer.example.com/tls/ca.crt:/etc/hyperledger/fabric/orderer-tls-ca.crt
+        - ../organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt:/etc/hyperledger/fabric/org1-tls-ca.crt
         - peer0.org2.example.com:/var/hyperledger/production
     working_dir: /opt/gopath/src/github.com/hyperledger/fabric/peer
     command: peer node start
