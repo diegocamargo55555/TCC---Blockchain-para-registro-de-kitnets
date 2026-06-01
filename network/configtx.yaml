@@ -1,67 +1,21 @@
-# Copyright IBM Corp. All Rights Reserved.
-#
-# SPDX-License-Identifier: Apache-2.0
-#
-
 Organizations:
-    - &OrdererOrg
-        Name: OrdererOrg
-        ID: OrdererMSP
-        MSPDir: /network/organizations/ordererOrganizations/example.com/msp
+    - &SampleOrg
+        Name: SampleOrg
+        ID: SampleOrg
+        MSPDir: /etc/hyperledger/fabric/msp
         Policies:
             Readers:
                 Type: Signature
-                Rule: "OR('OrdererMSP.member')"
+                Rule: "OR('SampleOrg.member')"
             Writers:
                 Type: Signature
-                Rule: "OR('OrdererMSP.member')"
+                Rule: "OR('SampleOrg.member')"
             Admins:
                 Type: Signature
-                Rule: "OR('OrdererMSP.admin')"
-
-    - &Org1
-        Name: Org1MSP
-        ID: Org1MSP
-        MSPDir: /network/organizations/peerOrganizations/org1.example.com/msp
-        Policies:
-            Readers:
-                Type: Signature
-                Rule: "OR('Org1MSP.admin', 'Org1MSP.peer', 'Org1MSP.client')"
-            Writers:
-                Type: Signature
-                Rule: "OR('Org1MSP.admin', 'Org1MSP.client')"
-            Admins:
-                Type: Signature
-                Rule: "OR('Org1MSP.admin')"
+                Rule: "OR('SampleOrg.admin')"
             Endorsement:
                 Type: Signature
-                Rule: "OR('Org1MSP.peer')"
-
-        AnchorPeers:
-            - Host: peer0.org1.example.com
-              Port: 7051
-
-    - &Org2
-        Name: Org2MSP
-        ID: Org2MSP
-        MSPDir: /network/organizations/peerOrganizations/org2.example.com/msp
-        Policies:
-            Readers:
-                Type: Signature
-                Rule: "OR('Org2MSP.admin', 'Org2MSP.peer', 'Org2MSP.client')"
-            Writers:
-                Type: Signature
-                Rule: "OR('Org2MSP.admin', 'Org2MSP.client')"
-            Admins:
-                Type: Signature
-                Rule: "OR('Org2MSP.admin')"
-            Endorsement:
-                Type: Signature
-                Rule: "OR('Org2MSP.peer')"
-
-        AnchorPeers:
-            - Host: peer0.org2.example.com
-              Port: 9051
+                Rule: "OR('SampleOrg.member')"
 
 Capabilities:
     Channel: &ChannelCapabilities
@@ -93,13 +47,7 @@ Application: &ApplicationDefaults
         <<: *ApplicationCapabilities
 
 Orderer: &OrdererDefaults
-    OrdererType: etcdraft
-    EtcdRaft:
-        Consenters:
-        - Host: orderer.example.com
-          Port: 7050
-          ClientTLSCert: /network/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/tls/server.crt
-          ServerTLSCert: /network/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/tls/server.crt
+    OrdererType: solo
     Addresses:
         - orderer.example.com:7050
     BatchTimeout: 2s
@@ -137,24 +85,21 @@ Channel: &ChannelDefaults
         <<: *ChannelCapabilities
 
 Profiles:
-    TwoOrgsApplicationGenesis:
+    SampleDevModeSolo:
         <<: *ChannelDefaults
         Orderer:
             <<: *OrdererDefaults
             Organizations:
-                - *OrdererOrg
+                - *SampleOrg
             Capabilities:
                 <<: *OrdererCapabilities
         Application:
             <<: *ApplicationDefaults
             Organizations:
-                - *Org1
-                - *Org2
+                - *SampleOrg
             Capabilities:
                 <<: *ApplicationCapabilities
-        Consortium: SampleConsortium
         Consortiums:
             SampleConsortium:
                 Organizations:
-                    - *Org1
-                    - *Org2
+                    - *SampleOrg
