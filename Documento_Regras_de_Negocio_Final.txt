@@ -1,0 +1,56 @@
+================================================================================
+ARQUIVO: regras_negocio_consolidadas.txt
+SISTEMA: Sistema Web de Registro Imobiliário (Blockchain / ERC-721 - Kitnets)
+AUTOR: Engenharia de Requisitos
+STATUS: Versão Final Consolidada
+================================================================================
+
+---
+
+## 1. Identidade, Autenticação e Assinaturas (RN-ID)
+
+* **RN-ID01 (Autenticação Forte):** Todas as transações e emissões de documentos exigem autenticação avançada do usuário (Pessoa Física)[cite: 2]. A validação ocorrerá utilizando assinatura criptográfica da carteira digital vinculada ao `endereco_carteira` da entidade[cite: 2, 28].
+* **RN-ID02 (Nível de Verificação):** Transações de transferência de propriedade exigem verificação de identidade em nível máximo (ex: integração Gov.br Nível Ouro ou Certificado ICP-Brasil) antes de serem disparadas para a blockchain[cite: 30]. Esta regra pode ser complementada por biometria[cite: 2].
+* **RN-ID03 (Representação Legal de PJ):** Uma Pessoa Jurídica (empresa/CNPJ) não pode assinar transações por si mesma[cite: 3]. Se o participante for uma `pessoa_juridica`, as ações na rede e no sistema devem ser assinadas obrigatoriamente pela carteira da `pessoa_fisica` vinculada como `representante_legal_id`[cite: 4, 29].
+* **RN-ID04 (Unicidade de Carteira):** Cada Entidade (CPF ou CNPJ) poderá ter apenas um endereço de carteira (Wallet) principal associado no banco de dados, visando evitar fragmentação e prevenir a lavagem de dinheiro[cite: 5].
+
+---
+
+## 2. Registro, Posse e Frações Ideais (RN-AT)
+
+* **RN-AT01 (Integridade de 100% da Posse):** Um imóvel pode pertencer a múltiplas entidades simultaneamente[cite: 6]. O Smart Contract e o sistema devem validar que a soma da coluna `percentual_posse` de todos os proprietários ativos de um mesmo `ativo_id` seja SEMPRE e exatamente igual a 100%[cite: 7, 23]. Nenhuma transação pode ser concluída se resultar em uma soma diferente[cite: 8].
+* **RN-AT02 (Limite de Saldo Negociável):** Uma entidade não poderá negociar (vender ou doar) um `percentual_fracao` que seja maior do que o `percentual_posse` que ela detém atualmente na tabela `posse_fracionada`[cite: 24].
+* **RN-AT03 (Equilíbrio de Transação):** Em uma `Transacao_SmartContract`, a soma dos percentuais fracionários dos Vendedores deve ser rigorosamente igual à soma dos percentuais dos Compradores[cite: 14].
+
+---
+
+## 3. Transações e Smart Contracts - Escrow (RN-TR)
+
+* **RN-TR01 (Consentimento Múltiplo):** Uma transação com múltiplos vendedores só é validada e executada após todas as entidades envolvidas na origem assinarem digitalmente a transação na rede[cite: 17].
+* **RN-TR02 (Transferência Atômica):** A troca de titularidade do imóvel só ocorre quando o Smart Contract confirma o recebimento do valor acordado[cite: 15]. A transferência do token ERC-721/NFT para o comprador e a liberação dos fundos (via cripto ou Real Digital/DREX) para o vendedor devem acontecer de forma simultânea e atômica[cite: 16, 31].
+* **RN-TR03 (Efetivação da Posse):** A transação só altera a posse após o status do Smart Contract mudar sistemicamente para `concluida`[cite: 25].
+* **RN-TR04 (Rollback e Falhas):** Se qualquer etapa da validação falhar, o contrato deve reverter (rollback) o estado[cite: 32]. Os fundos devem ser devolvidos ao comprador, a posse mantida com o vendedor, e o status da transação alterado para `cancelada`[cite: 32].
+
+---
+
+## 4. Gravames, Bloqueios e Ônus (RN-GR)
+
+* **RN-GR01 (Trava de Transferência):** O sistema não permitirá a criação de uma Transação de Venda ou Doação na tabela `transacao_smart_contract` para um Imóvel (`ativo_id`) que possua um registro ativo na tabela `gravame_onus` (onde a coluna `ativo` seja TRUE)[cite: 18, 26]. A única exceção é se o gravame prever explicitamente a venda com sub-rogação da dívida[cite: 18].
+* **RN-GR02 (Baixa de Gravame Exclusiva):** Apenas a Entidade credora associada ao `credor_id` (ex: Bancos, Tribunal de Justiça) possui autorização sistêmica para assinar a transação de baixa[cite: 19]. O desbloqueio só ocorre quando o oráculo emitir um evento que preencha a `data_baixa` e altere a flag `ativo` para FALSE[cite: 19, 27].
+
+---
+
+## 5. Integração com Oráculos (RN-OR)
+
+* **RN-OR01 (Confirmação de ITBI):** A transação de transferência só pode avançar do status `pendente_pagamento` para `processando_blockchain` após o sistema (via tabela `evento_oraculo`) receber e processar o evento de "Confirmacao_Pagamento_ITBI" de um Oráculo confiável da Prefeitura local[cite: 20, 33].
+* **RN-OR02 (Validação de CNDs):** A emissão de novas matrículas ou escrituras exige a validação de oráculos emitindo certidões negativas de débitos (CNDs) atreladas ao CPF/CNPJ do vendedor[cite: 34].
+* **RN-OR03 (Ação Judicial Direta):** Oráculos associados ao Poder Judiciário têm permissão para executar chamadas de contrato que inserem gravames e bloqueios de forma unilateral, sem a necessidade de aprovação do proprietário da kitnet[cite: 21].
+
+---
+
+## 6. Imutabilidade, Histórico e Armazenamento (RN-IM)
+
+* **RN-IM01 (Histórico Append-Only):** Alterações nas características físicas do imóvel (construção/demolição) ou no estado civil/jurídico dos donos geram uma nova `Averbacao`[cite: 11]. Não geram um novo token de ativo nem alteram os donos primários[cite: 35]. A inserção deve gerar obrigatoriamente uma nova linha em `averbacao_imovel`[cite: 36].
+* **RN-IM02 (Proibição de Deleção):** Os dados anteriores nunca são substituídos ou deletados (`DELETE` e `UPDATE` não ocorrem)[cite: 12]. Nenhum registro nas tabelas `averbacao_imovel`, `registro` ou `evento_oraculo` pode ser excluído do banco de dados após inserido[cite: 37]. O histórico é construído através da inserção contínua[cite: 13]. Erros devem ser corrigidos através de uma nova averbação do tipo "Retificação"[cite: 38].
+* **RN-IM03 (Armazenamento Descentralizado):** Os arquivos físicos e PDFs originais de escrituras, plantas e certidões não devem ser armazenados em bancos de dados tradicionais ou AWS S3 (para evitar centralização)[cite: 9]. Eles devem ser processados e enviados para a rede IPFS, gerando um Hash que retornará para a coluna `cid_ipfs`[cite: 10, 39]. Apenas o CID do documento é gravado na Blockchain[cite: 11].
+* **RN-IM04 (Fé Pública e Prova Criptográfica):** A validade jurídica de um documento dentro do sistema ocorre exclusivamente pela presença do `hash_transacao_blockchain`[cite: 40]. É esse hash que ancora o arquivo off-chain (IPFS) na rede on-chain[cite: 40].

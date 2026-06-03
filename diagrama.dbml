@@ -1,0 +1,188 @@
+// Diagrama de Banco de Dados Revisado para o Sistema Web de Cartórios
+// Linguagem: DBML (dbdiagram.io)
+// Padronizado para snake_case e 3ª Forma Normal
+
+// --- Enumerações ---
+Enum tipo_ativo {
+  imovel
+  veiculo
+  empresa
+  propriedade_intelectual
+}
+
+Enum tipo_registro {
+  nascimento
+  obito
+  casamento
+  divorcio
+  escritura
+  matricula
+  procuracao
+}
+
+Enum status_transacao {
+  pendente_pagamento
+  pendente_assinatura
+  processando_blockchain
+  concluida
+  cancelada
+  bloqueada_judicialmente
+}
+
+Enum tipo_averbacao {
+  construcao
+  demolicao
+  mudanca_estado_civil
+  alteracao_logradouro
+  outros
+}
+
+Enum tipo_gravame {
+  alienacao_fiduciaria
+  hipoteca
+  penhora_judicial
+  usufruto
+}
+
+Enum papel_transacao {
+  vendedor_doador
+  comprador_recebedor
+}
+
+// --- Tabelas de Identidade (Entidades - Normalizado para 3NF) ---
+
+Table entidade {
+  id uuid [primary key, note: 'Identificador único interno base']
+  endereco_carteira varchar [unique, not null, note: 'Endereço da Wallet na Blockchain (SSI)']
+  data_criacao timestamp [default: `now()`]
+}
+
+Table pessoa_fisica {
+  entidade_id uuid [primary key, ref: - entidade.id]
+  cpf varchar [unique, not null]
+  nome_completo varchar [not null]
+  nivel_identidade varchar [note: 'Ex: Ouro (gov.br)']
+  hash_biometria varchar [note: 'Hash da biometria facial/digital']
+}
+
+Table pessoa_juridica {
+  entidade_id uuid [primary key, ref: - entidade.id]
+  cnpj varchar [unique, not null]
+  razao_social varchar [not null]
+  representante_legal_id uuid [not null, note: 'PF (Sócio/Diretor) que assina pela empresa']
+}
+
+Ref: pessoa_juridica.representante_legal_id > pessoa_fisica.entidade_id
+
+// --- Ativos (Propriedades) ---
+
+Table ativo {
+  id uuid [primary key]
+  tipo tipo_ativo [not null]
+  descricao text [note: 'Detalhes do bem (ex: Endereço da kitnet, chassi do carro)']
+  token_id_blockchain varchar [unique, note: 'ID do NFT ou Token que representa o ativo na rede']
+  data_registro timestamp [default: `now()`]
+  note: 'A posse não fica aqui. Está na tabela posse_fracionada.'
+}
+
+// --- Regras Jurídicas do Mundo Real ---
+
+Table posse_fracionada {
+  id uuid [primary key]
+  entidade_id uuid [not null]
+  ativo_id uuid [not null]
+  percentual_posse decimal [not null, note: 'Ex: 50.00 para representar 50%']
+  data_aquisicao timestamp [default: `now()`]
+  note: 'OBS: O Smart Contract garante que a soma das posses de um ativo nunca ultrapasse 100%.'
+}
+
+Table averbacao_imovel {
+  id uuid [primary key]
+  ativo_id uuid [not null]
+  registro_relacionado_id uuid [note: 'Opcional, vincula ao PDF do Habite-se ou Certidão']
+  tipo_averbacao tipo_averbacao [not null]
+  descricao text [not null, note: 'Ex: Construção de 50m2, Casamento com Comunhão']
+  data_averbacao timestamp [default: `now()`]
+  note: 'Histórico de alterações que não mudam a posse, mas alteram o bem.'
+}
+
+Table gravame_onus {
+  id uuid [primary key]
+  credor_id uuid [not null, note: 'ID da Entidade (Banco financiador ou Justiça)']
+  tipo_gravame tipo_gravame [not null]
+  ativo_id uuid [not null]
+  descricao text [not null, note: 'Ex: Financiamento CEF, Processo Judicial Nº...']
+  ativo boolean [default: true, note: 'Se true, bloqueia ou condiciona a venda do imóvel']
+  data_registro timestamp [default: `now()`]
+  data_baixa timestamp [note: 'Preenchido quando a dívida é paga ou liberada']
+}
+
+// --- Registros (Documentos Oficiais) ---
+
+Table registro {
+  id uuid [primary key]
+  tipo tipo_registro [not null]
+  cid_ipfs varchar [not null, note: 'Hash do documento/PDF salvo na rede IPFS']
+  hash_transacao_blockchain varchar [unique, not null, note: 'Prova na blockchain']
+  entidade_id uuid [note: 'Entidade (PF/PJ) vinculada ao registro (ex: nascimento, casamento)']
+  ativo_id uuid [note: 'Opcional. Preenchido se for registro de um bem (ex: escritura, matrícula)']
+  data_emissao timestamp [default: `now()`]
+}
+
+// --- Transações Inteligentes (Smart Contracts) ---
+
+Table transacao_smart_contract {
+  id uuid [primary key]
+  ativo_id uuid [not null, note: 'Qual bem está sendo transferido/negociado']
+  valor_total_operacao decimal [note: 'Valor financeiro total envolvido na transação']
+  status status_transacao [default: 'pendente_pagamento']
+  endereco_contrato varchar [note: 'Endereço do Smart Contract']
+  hash_execucao varchar [note: 'Hash da transação final que concretizou a mudança']
+  data_inicio timestamp [default: `now()`]
+  data_conclusao timestamp
+  note: 'Transação central. As partes envolvidas estão na tabela participante_transacao.'
+}
+
+Table participante_transacao {
+  id uuid [primary key]
+  entidade_id uuid [not null]
+  transacao_id uuid [not null]
+  papel papel_transacao [not null]
+  percentual_fracao decimal [not null, note: 'Fração que está vendendo ou comprando']
+  valor_pago_recebido decimal [note: 'Parte financeira desta entidade']
+}
+
+// --- Integrações Externas (Oráculos) ---
+
+Table evento_oraculo {
+  id uuid [primary key]
+  fonte varchar [note: 'Ex: Receita Federal, Judiciário, IML, Bancos']
+  tipo_evento varchar [note: 'Ex: Confirmacao_Pagamento_ITBI, Bloqueio_Bens']
+  registro_relacionado_id uuid [note: 'Opcional']
+  transacao_relacionada_id uuid [note: 'Opcional']
+  dados_payload json [note: 'Dados dinâmicos recebidos via Webhook/Oráculo']
+  processado boolean [default: false]
+  data_recebimento timestamp [default: `now()`]
+}
+
+// --- Relacionamentos (Foreign Keys) ---
+
+Ref: posse_fracionada.ativo_id > ativo.id
+Ref: posse_fracionada.entidade_id > entidade.id
+
+Ref: averbacao_imovel.ativo_id > ativo.id
+Ref: averbacao_imovel.registro_relacionado_id > registro.id
+
+Ref: gravame_onus.ativo_id > ativo.id
+Ref: gravame_onus.credor_id > entidade.id
+
+Ref: registro.entidade_id > entidade.id
+Ref: registro.ativo_id > ativo.id
+
+Ref: transacao_smart_contract.ativo_id > ativo.id
+
+Ref: participante_transacao.transacao_id > transacao_smart_contract.id
+Ref: participante_transacao.entidade_id > entidade.id
+
+Ref: evento_oraculo.registro_relacionado_id > registro.id
+Ref: evento_oraculo.transacao_relacionada_id > transacao_smart_contract.id

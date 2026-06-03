@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  # Banco de Dados PostgreSQL (Cache de leitura relacional)
+  postgres:
+    image: postgres:15-alpine
+    container_name: cartorio-postgres
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: adminpassword
+      POSTGRES_DB: cartorio_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  # Nó local do IPFS (Kubo) para armazenar os documentos e CIDs
+  ipfs:
+    image: ipfs/kubo:latest
+    container_name: cartorio-ipfs
+    ports:
+      - "4001:4001"    # Swarm (P2P)
+      - "5001:5001"    # API
+      - "8080:8080"    # Gateway
+    volumes:
+      - ipfs_data:/data/ipfs
+    # Permite acesso CORS para o Gateway e API
+    entrypoint:
+      - "/bin/sh"
+      - "-c"
+      - |
+        echo "Inicializando IPFS com configuração CORS..."
+        /sbin/su-exec ipfs ipfs init || true
+        /sbin/su-exec ipfs ipfs config --json API.HTTPHeaders.Access-Control-Allow-Origin '["*"]'
+        /sbin/su-exec ipfs ipfs config --json API.HTTPHeaders.Access-Control-Allow-Methods '["PUT", "POST", "GET"]'
+        /sbin/su-exec ipfs ipfs config --json Gateway.HTTPHeaders.Access-Control-Allow-Origin '["*"]'
+        /sbin/su-exec ipfs ipfs config --json Gateway.HTTPHeaders.Access-Control-Allow-Methods '["PUT", "POST", "GET"]'
+        /sbin/su-exec ipfs ipfs daemon
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  ipfs_data:
